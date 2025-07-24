@@ -1,0 +1,183 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sample Allocation Dashboard</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo">Sample Allocation</div>
+  <ul class="nav-links">
+    <li><a href="#allocation">Allocation Overview</a></li>
+    <li><a href="#about">Algorithm</a></li>
+    <li><a href="#actions">Actions</a></li>
+    <li><a href="#chart-section">Allocation Chart</a></li>
+    <li><a href="{% url 'logs' %}">Allocation Logs</a></li> 
+  </ul>
+</nav>
+
+<section class="hero">
+  <h1 class="fade-up">Efficient Sample Allocation System</h1>
+  <p class="fade-up delay">Balancing regional demands with predictive accuracy.</p>
+</section>
+
+<section id="allocation" class="portfolio-section">
+  <h2>Current Regional Blocks</h2>
+  <div class="portfolio-grid">
+    {% for block in blocks %}
+    <div class="card">
+      <div class="card-content">
+        <h3>{{ block.name }}</h3>
+        <p><strong>Capacity:</strong> {{ block.total }}</p>
+        <p><strong>Allocated Samples:</strong> {{ block.allocated }}</p>
+        <p><strong>Remaining:</strong> {{ block.remaining }}</p>
+      </div>
+    </div>
+    {% empty %}
+    <p>No regional blocks found.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section id="about" class="about-section">
+  <h2>About the Allocation Algorithm</h2>
+  <p>This system uses predictive balancing and fixed block capacity to optimize sample distribution regionally by allocating samples to the block with the highest available capacity.</p>
+</section>
+
+<section id="actions" class="portfolio-section">
+  <h2>Actions</h2>
+  <div class="portfolio-grid" style="max-width: 700px; margin: 0 auto;">
+    <!-- Allocate Sample Code Card -->
+    <div class="card">
+      <h3>Allocate Sample Code</h3>
+      <form method="post" action="" novalidate>
+        {% csrf_token %}
+        <label for="sample_code">Sample Code:</label>
+        <input type="text" name="sample_code" id="sample_code" required placeholder="Enter sample code"
+               style="width: 100%; padding: 0.5rem; margin: 0.5rem 0 1rem 0; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem;" />
+        <button class="ripple-button" type="submit" name="allocate_single">Allocate</button>
+      </form>
+    </div>
+
+    <!-- Update Specific Region Card -->
+    <div class="card">
+      <h3>Update Processed Samples</h3>
+      <form method="post" action="" novalidate>
+        {% csrf_token %}
+        <label for="processed_block">Select Region:</label>
+        <select name="processed_block" id="processed_block" required
+                style="width: 100%; padding: 0.5rem; margin: 0.5rem 0 1rem 0; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem;">
+          <option value="">-- Select Region --</option>
+          {% for block in blocks %}
+            <option value="{{ block.id }}">{{ block.name }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="processed_count">Samples Processed:</label>
+        <input type="number" name="processed_count" id="processed_count" min="1" required
+               placeholder="Number of samples processed"
+               style="width: 100%; padding: 0.5rem; margin: 0.5rem 0 1rem 0; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem;" />
+
+        <button class="ripple-button" type="submit" name="process_specific">Update</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- Chart Section with proper sizing and container styling -->
+<section id="chart-section">
+  <div>
+    <h2>
+      Region-wise Allocation Status
+    </h2>
+    <canvas id="barChart"></canvas>
+  </div>
+</section>
+
+<!-- Display messages -->
+{% if result %}
+  <section style="max-width:600px; margin: 1rem auto; padding: 1rem; background: #f8f8f8; border-radius: 8px; color: #222; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    {% if result.error %}
+      <p style="color: #c0392b; font-weight: bold;">Error: {{ result.error }}</p>
+    {% elif result.log %}
+      <ul>
+        {% for item in result.log %}
+          <li style="color: #27ae60;">{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+{% endif %}
+
+<script>
+  const ctx = document.getElementById('barChart').getContext('2d');
+  const barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: {{ block_labels|safe }},
+      datasets: [
+        {
+          label: 'Allocated',
+          data: {{ allocated_list|safe }},
+          backgroundColor: '#27ae60',  // Primary green
+          borderColor: '#27ae60',
+          borderWidth: 1,
+          borderRadius: 6,
+          maxBarThickness: 34
+        },
+        {
+          label: 'Remaining',
+          data: {{ remaining_list|safe }},
+          backgroundColor: '#fbc531',  // Soft yellow
+          borderColor: '#fbc531',
+          borderWidth: 1,
+          borderRadius: 6,
+          maxBarThickness: 34
+        }
+      ]
+    },
+    options: {
+      maintainAspectRatio: false,  // Important for CSS sizing to work properly
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: {
+            color: '#2c3e50',
+            font: { size: 16, weight: 'bold' }
+          },
+          align: 'center'
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#2c3e50',
+            font: { size: 14 }
+          },
+          grid: {
+            color: 'rgba(44, 62, 80, 0.07)'
+          }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: '#2c3e50',
+            font: { size: 14 }
+          },
+          grid: {
+            color: 'rgba(44, 62, 80, 0.07)'
+          }
+        }
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

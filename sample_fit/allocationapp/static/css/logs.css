@@ -1,0 +1,87 @@
+/* ----- Filter Form Styles ----- */
+.filter-form {
+  margin-top: 1rem;
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  justify-content: center;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 180px;
+  max-width: 240px;
+}
+
+.form-group label {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.filter-select {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+/* Logs Table */
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.logs-table thead tr {
+  background-color: #27ae60;
+  color: white;
+  text-align: left;
+  user-select: none;
+}
+
+.logs-table th,
+.logs-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.logs-table tbody tr:hover {
+  background-color: #f0f9f4;
+}
+
+/* Button adjustments for the logs page */
+.download-btn {
+  margin-left: 1rem;
+  background: #2980b9;
+}
+
+.download-btn:hover {
+  background: #1e6091;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .filter-form {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-group {
+    max-width: 100%;
+  }
+
+  .download-btn {
+    display: block;
+    margin: 1rem auto 0 auto;
+  }
+}

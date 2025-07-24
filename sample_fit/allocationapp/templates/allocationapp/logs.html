@@ -1,0 +1,92 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Allocation Logs</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/logs.css' %}" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo">Sample Allocation</div>
+  <ul class="nav-links">
+    <li><a href="{% url 'home' %}">Dashboard</a></li>
+    {% comment %} <li><a href="#filter">Filter Logs</a></li> {% endcomment %}
+  </ul>
+</nav>
+
+<section class="hero" style="height: auto; padding: 4rem 2rem 2rem 2rem;">
+  <h1 class="fade-up" style = "margin-top: 30px ">Allocation Logs</h1>
+  <p class="fade-up delay">Filter and review your sample allocation history</p>
+
+  <form method="get" id="filter" class="filter-form">
+    <div class="form-group">
+      <label for="block">Region:</label>
+      <select name="block" id="block" class="filter-select">
+        <option value="">-- All Regions --</option>
+        {% for b in blocks %}
+          <option value="{{ b.id }}" {% if selected_block|stringformat:"s" == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="action">Action:</label>
+      <select name="action" id="action" class="filter-select">
+        <option value="">-- All Actions --</option>
+        {% comment %} List your actions here dynamically or hardcoded {% endcomment %}
+        <option value="allocate" {% if selected_action == 'allocate' %}selected{% endif %}>Allocated</option>
+        <option value="process" {% if selected_action == 'process' %}selected{% endif %}>Processed</option>
+        <option value="manual" {% if selected_action == 'manual' %}selected{% endif %}>Manually Processed</option>
+        <option value="delete" {% if selected_action == 'delete' %}selected{% endif %}>Deleted</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="date">Date:</label>
+      <input type="date" name="date" id="date" class="filter-select" value="{{ selected_date }}">
+    </div>
+
+    <button type="submit" class="ripple-button">Filter</button>
+    <a href="{% url 'download_logs' %}?block={{ selected_block }}&action={{ selected_action }}&date={{ selected_date }}" class="ripple-button download-btn" target="_blank" rel="noopener">Download Excel</a>
+  </form>
+</section>
+
+<section class="portfolio-section" style="max-width: 1000px; margin: 1rem auto 4rem auto;">
+  {% if logs %}
+  <table class="logs-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Region</th>
+        <th>Action</th>
+        <th>Quantity/Samples</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+        <td>{{ log.block.name }}</td>
+        <td>{{ log.get_action_display }}</td>
+        <td>
+          {% if log.action == 'allocate' %}
+            {{ log.samples.all|join:", " }}
+          {% else %}
+            {{ log.quantity }}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="text-align: center; font-style: italic; margin-top: 2rem;">No logs match the filter criteria.</p>
+  {% endif %}
+</section>
+
+</body>
+</html>
