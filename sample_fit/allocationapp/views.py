@@ -1,11 +1,20 @@
-from django.shortcuts import render, redirect
-from .models import Block, BlockLog, Sample
 import random
-from django.http import HttpResponse
+import json
 import io
 import xlsxwriter
+
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.core.mail import send_mail
 from django.db.models import Count
-import json
+from django.urls import reverse
+
+from .models import Block, BlockLog, Sample, SampleCorrectionRequest
+
+
+# Fixed email for sending OTP for sample correction
+FIXED_OTP_EMAIL = 'example@gmail.com'  # Replace with your actual fixed email
+
 
 # Ensure fixed blocks exist
 def ensure_fixed_blocks():
@@ -58,7 +67,8 @@ def home(request):
                 request.session['result'] = {'log': log}
             else:
                 request.session['result'] = {'error': "Please enter a valid sample code."}
-            return redirect('home')
+            # Redirect including anchor to keep scroll position near form after reload
+            return redirect(reverse('home') + '#actions')
 
         # Process specific samples form submission
         elif "process_specific" in request.POST:
@@ -80,7 +90,7 @@ def home(request):
                     }
             except (ValueError, Block.DoesNotExist):
                 request.session['result'] = {'error': "Invalid region or sample count."}
-            return redirect('home')
+            return redirect(reverse('home') + '#actions')
 
     result = request.session.pop('result', None)
     blocks = Block.objects.all().order_by('name')
@@ -99,6 +109,7 @@ def home(request):
         'allocated_list': json.dumps(allocated_list),
         'remaining_list': json.dumps(remaining_list),
     })
+
 
 # Logs view for filter UI
 def logs_view(request):
@@ -125,7 +136,7 @@ def logs_view(request):
     })
 
 
-# Excel download with sample code support
+# Excel download with sample code support (enhanced formatting recommended)
 def download_logs(request):
     logs = BlockLog.objects.all().order_by('-timestamp')
 
@@ -146,25 +157,163 @@ def download_logs(request):
     password = "YourSecret123"
     worksheet.protect(password)
 
+    # Define formats
+    header_format = workbook.add_format({
+        'bold': True,
+        'font_color': '#ffffff',
+        'bg_color': '#27ae60',  # green header background to match your theme
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'font_size': 12
+    })
+    cell_format_odd = workbook.add_format({
+        'bg_color': "#f9f9f9",
+        'border': 1,
+        'font_size': 11,
+        'valign': 'vcenter'
+    })
+    cell_format_even = workbook.add_format({
+        'bg_color': "#eafaf1",
+        'border': 1,
+        'font_size': 11,
+        'valign': 'vcenter'
+    })
+    wrap_format = workbook.add_format({
+        'bg_color': "#eafaf1",
+        'border': 1,
+        'font_size': 11,
+        'valign': 'vcenter',
+        'text_wrap': True
+    })
+
     headers = ['Timestamp', 'Block', 'Action', 'Sample Code or Quantity']
     for col_num, header in enumerate(headers):
-        worksheet.write(0, col_num, header)
+        worksheet.write(0, col_num, header, header_format)
 
+    # Set column widths for better readability
+    worksheet.set_column('A:A', 20)  # Timestamp
+    worksheet.set_column('B:B', 24)  # Block
+    worksheet.set_column('C:C', 16)  # Action
+    worksheet.set_column('D:D', 32)  # Sample Code or Quantity
+
+    # Freeze header row
+    worksheet.freeze_panes(1, 0)
+
+    # Write data rows with alternating row colors
     for row_num, log in enumerate(logs, start=1):
-        worksheet.write(row_num, 0, log.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
-        worksheet.write(row_num, 1, log.block.name)
-        worksheet.write(row_num, 2, log.get_action_display())
+        row_format = cell_format_odd if row_num % 2 == 1 else cell_format_even
+
+        worksheet.write(row_num, 0, log.timestamp.strftime('%Y-%m-%d %H:%M:%S'), row_format)
+        worksheet.write(row_num, 1, log.block.name, row_format)
+        worksheet.write(row_num, 2, log.get_action_display(), row_format)
 
         if log.action == 'allocate':
             sample_codes = ", ".join(sample.code for sample in log.samples.all())
-            worksheet.write(row_num, 3, sample_codes or '')
+            worksheet.write(row_num, 3, sample_codes or '', wrap_format)
         else:
-            worksheet.write(row_num, 3, str(log.quantity or ''))
+            worksheet.write(row_num, 3, str(log.quantity or ''), row_format)
 
     workbook.close()
     output.seek(0)
 
-    response = HttpResponse(output.read(),
-                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
     response['Content-Disposition'] = 'attachment; filename="protected_logs.xlsx"'
     return response
+
+
+
+# Sample correction: request form to send OTP to fixed email
+def request_sample_correction(request):
+    if request.method == "POST":
+        old_code = request.POST.get('old_sample_code', '').strip()
+        new_code = request.POST.get('new_sample_code', '').strip()
+
+        # Validate old code exists; new code doesn't exist
+        if not Sample.objects.filter(code=old_code).exists():
+            return render(request, 'allocationapp/correction_form.html', {'error': "Old sample code does not exist."})
+        if Sample.objects.filter(code=new_code).exists():
+            return render(request, 'allocationapp/correction_form.html', {'error': "New sample code already exists."})
+
+        # Create OTP and save request
+        otp = f"{random.randint(100000, 999999)}"
+        SampleCorrectionRequest.objects.create(
+            email=FIXED_OTP_EMAIL,
+            old_sample_code=old_code,
+            new_sample_code=new_code,
+            otp=otp
+        )
+
+        # Send OTP to fixed email
+        send_mail(
+            subject="OTP for Sample Code Correction",
+            message=f"Your OTP is {otp}",
+            from_email="noreply@yourdomain.com",
+            recipient_list=[FIXED_OTP_EMAIL],
+            fail_silently=False,
+        )
+
+        # Store identifying info in session for OTP verification
+        request.session["correction_email"] = FIXED_OTP_EMAIL
+        request.session["correction_old_code"] = old_code
+        request.session["correction_new_code"] = new_code
+
+        return redirect("verify_correction_otp")
+
+    return render(request, "allocationapp/correction_form.html")
+
+
+# OTP verification and sample code correction
+def verify_correction_otp(request):
+    if request.method == "POST":
+        email = request.session.get("correction_email")
+        old_code = request.session.get("correction_old_code")
+        new_code = request.session.get("correction_new_code")
+        otp_input = request.POST.get('otp', '').strip()
+
+        try:
+            req = SampleCorrectionRequest.objects.filter(
+                email=email, old_sample_code=old_code, new_sample_code=new_code, is_verified=False
+            ).latest("created_at")
+        except SampleCorrectionRequest.DoesNotExist:
+            return render(request, "allocationapp/correction_otp.html", {"error": "No pending correction request found."})
+
+        if req.is_expired():
+            return render(request, "allocationapp/correction_otp.html", {"error": "OTP has expired."})
+
+        if req.otp != otp_input:
+            return render(request, "allocationapp/correction_otp.html", {"error": "Invalid OTP."})
+
+        # OTP valid: mark request verified
+        req.is_verified = True
+        req.save()
+
+        # Remove old sample and decrement allocated count
+        try:
+            sample = Sample.objects.get(code=old_code)
+            block = sample.block
+            if block.allocated > 0:
+                block.allocated -= 1
+                block.save()
+            sample.delete()
+        except Sample.DoesNotExist:
+            return render(request, "allocationapp/correction_otp.html", {"error": "Old sample not found."})
+
+        # Allocate new sample code
+        allocation_log = allocate_sample_by_code(new_code)
+
+        # Clear session data after use (optional cleanup)
+        request.session.pop("correction_email", None)
+        request.session.pop("correction_old_code", None)
+        request.session.pop("correction_new_code", None)
+
+        return render(request, "allocationapp/correction_otp.html", {
+            "success": "Sample code corrected successfully.",
+            "log": allocation_log,  # optional: log messages after allocation
+        })
+
+    return render(request, "allocationapp/correction_otp.html")
+

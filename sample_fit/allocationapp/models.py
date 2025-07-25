@@ -76,3 +76,18 @@ class BlockLog(models.Model):
     def __str__(self):
         sample_list = ", ".join(s.code for s in self.samples.all())
         return f"{self.timestamp.strftime('%Y-%m-%d %H:%M:%S')} | {self.block.name} | {self.action} | {sample_list or self.quantity}"
+
+from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+
+class SampleCorrectionRequest(models.Model):
+    email = models.EmailField()
+    old_sample_code = models.CharField(max_length=100)
+    new_sample_code = models.CharField(max_length=100)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=10)

@@ -122,3 +122,6 @@ STATICFILES_DIRS = [BASE_DIR / 'allocationapp' / 'static']
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# For development: prints emails to the console, avoids real SMTP
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

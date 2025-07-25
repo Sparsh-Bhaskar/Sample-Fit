@@ -1,0 +1,32 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sample Code Correction</title>
+  <link rel="stylesheet" href="{% static 'css/correction_form.css' %}" />
+</head>
+<body>
+
+<div class="correction-form-container">
+  <h2>Request Sample Code Correction</h2>
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <label for="old_sample_code">Wrong (old) Sample Code:</label>
+    <input type="text" name="old_sample_code" id="old_sample_code" required />
+
+    <label for="new_sample_code">Correct Sample Code:</label>
+    <input type="text" name="new_sample_code" id="new_sample_code" required />
+
+    <button type="submit">Request Correction</button>
+  </form>
+</div>
+
+</body>
+</html>
